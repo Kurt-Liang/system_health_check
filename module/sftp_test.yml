@@ -1,0 +1,36 @@
+- name: sFTP test
+  shell: printf "\n sFTP test:\n" >> {{OUTPUT}}
+    
+- name: sFTP test loop
+  shell: timeout {{SFTP_TIMEOUT}} sshpass -p {{item.pwd}} ssh -p {{item.port}} {{item.user}}@{{item.ip}} hostname
+  with_items: "{{SFTP_TEST}}"
+  register: sftp_test
+  ignore_errors: yes
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check sFTP test is OK
+  shell: 
+    printf " %-30s%23s\n" "{{item.item.user}}@{{item.item.ip}}:{{item.item.port}}" "OK" >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]INFO:sftp_test:{{item.item.user}}@{{item.item.ip}}:{{item.item.port}},{{item.stdout}}\n" >> {{LOG_PATH}}
+  with_items: "{{sftp_test.results}}"
+  when: item.stdout != ""
+
+- name: Get time now
+  shell: date
+  register: time_now
+    
+- name: Check sFTP is not OK
+  shell: 
+    printf " %-30s%23s\n" "{{item.item.user}}@{{item.item.ip}}:{{item.item.port}}" "ERROR" >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]ERROR:sftp_test:"{{item.item.user}}@{{item.item.ip}}:{{item.item.port}}",'{{item.stderr}}'\n" >> {{LOG_PATH}}
+  with_items: "{{sftp_test.results}}"
+  when: item.stdout == ""
+
+- name: change all check
+  set_fact: 
+    all_check: "{{ all_check | int + 1 }}"
+  with_items: "{{sftp_test.results}}"
+  when: item.stdout == ""

@@ -1,0 +1,23 @@
+- name: ssd check
+  shell: printf "\n SSD check:\n" >> {{OUTPUT}}
+
+- name: GET ssd info
+  shell: nvme smart-log /dev/nvme0n1p1 | grep 'percentage_used' | awk '{printf $3}' | awk -F '%' '{printf $1}'
+  register: ssd_info
+
+- name: ssd is OK
+  shell: 
+    printf " %-30s%23s\n" percentage_used "{{ssd_info['stdout']}}% (OK)" >> {{OUTPUT}} &&
+    printf "[{{ssd_info.end}}]INFO:system_check:ssd_info,{{ssd_info['stdout']}}%%,cpu_max,{{SSD_percentage_used}}%%\n" >> {{LOG_PATH}}
+  when: ssd_info['stdout'] | int < SSD_percentage_used
+
+- name: ssd is not OK
+  shell: 
+    printf " %-30s%23s\n" percentage_used "{{ssd_info['stdout']}}% ({{SSD_percentage_used}}%)" >> {{OUTPUT}} &&
+    printf "[{{ssd_info.end}}]ERROR:system_check:ssd_info,{{ssd_info['stdout']}}%%,cpu_max,{{SSD_percentage_used}}%%\n" >> {{LOG_PATH}}
+  when: ssd_info['stdout'] | int >= SSD_percentage_used
+
+- name: change all check
+  set_fact: 
+    all_check: "{{ all_check | int + 1 }}"
+  when: ssd_info['stdout'] | int >= SSD_percentage_used

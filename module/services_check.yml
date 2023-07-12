@@ -1,0 +1,35 @@
+- name: Services Check
+  shell: printf "\n Services:\n" >> {{OUTPUT}}
+
+- name: Check services status
+  shell: systemctl status {{item}} | grep Active | awk '{printf $2}'
+  with_items: "{{SERVICES}}"
+  register: check_services
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check service is OK
+  shell: 
+    printf " %-30s%23s\n" {{item.item}} "{{item.stdout}}" >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]INFO:services_check:{{item.item}},{{item.stdout}}\n" >> {{LOG_PATH}}
+  with_items: "{{check_services.results}}"
+  when: item.stdout == "active"
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check service is not OK
+  shell: 
+    printf " %-30s%23s\n" {{item.item}} "{{item.stdout}}" >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]ERROR:services_check:{{item.item}},{{item.stdout}}\n" >> {{LOG_PATH}}
+  with_items: "{{check_services.results}}"
+  when: item.stdout != "active"
+
+- name: change all check
+  set_fact: 
+    all_check: "{{ all_check | int + 1 }}"
+  with_items: "{{check_services.results}}"
+  when: item.stdout != "active"

@@ -1,0 +1,35 @@
+- name: Log content Check
+  shell: printf "\n Log content:\n" >> {{OUTPUT}}
+    
+- name: Find log content
+  shell: tail -n {{item.rows}} {{item.path}} | grep -i {{item.key_word}} | awk '{status="ERROR"} END {print status}'
+  with_items: "{{LOG_CHECK}}"
+  register: log_content
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check Log content is OK
+  shell: 
+    printf " %-30s%23s\n" {{item.item.name}} "OK" >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]INFO:log_content:{{item.item.name}},Content is normal\n" >> {{LOG_PATH}}
+  with_items: "{{log_content.results}}"
+  when: item.stdout == "" and item.stderr == ""
+
+- name: Get time now
+  shell: date
+  register: time_now
+    
+- name: Check Log content is not OK
+  shell: 
+    printf " %-30s%23s\n" {{item.item.name}} "ERROR" >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]ERROR:log_content:{{item.item.name}},Some ERROR in the content\n" >> {{LOG_PATH}}
+  with_items: "{{log_content.results}}"
+  when: item.stdout != "" or item.stderr != ""
+
+- name: change all check
+  set_fact: 
+    all_check: "{{ all_check | int + 1 }}"
+  with_items: "{{log_content.results}}"
+  when: item.stdout != "" or item.stderr != ""

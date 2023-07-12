@@ -1,0 +1,49 @@
+- name: API Test
+  shell: printf "\n API Test:\n" >> {{OUTPUT}}
+
+- name: Request url and get header
+  shell: timeout {{API_TIMEOUT}} curl -X {{item.method}} --data '{{item.params}}' -o '/dev/null' -s -w '%{http_code}' {{item.url}}
+  args:
+    warn: false
+  with_items: "{{API_TEST}}"
+  register: api_test
+  ignore_errors: yes
+  
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check 'GET' http code is 200
+  shell: 
+    printf " %-30s%23s\n" '{{item.item.name}}' {{item.stdout}} >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]INFO:api_test:'{{item.item.url}}',{{item.stdout}}\n" >> {{LOG_PATH}}
+  with_items: "{{api_test.results}}"
+  when: item.stdout | int == 200
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check http code is not 200
+  shell: 
+    printf " %-30s%23s\n" '{{item.item.name}}' {{item.stdout}} >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]ERROR:api_test:'{{item.item.url}}',{{item.stdout}}\n" >> {{LOG_PATH}}
+  with_items: "{{api_test.results}}"
+  when: item.stdout | int != 200 and item.stdout != ""
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check http code is timeout
+  shell: 
+    printf " %-30s%23s\n" '{{item.item.name}}' timeout >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]ERROR:api_test:'{{item.item.url}}',timeout\n" >> {{LOG_PATH}}
+  with_items: "{{api_test.results}}"
+  when: item.stdout == "" and item.stderr == ""
+
+- name: change all check
+  set_fact: 
+    all_check: "{{ all_check | int + 1 }}"
+  with_items: "{{api_test.results}}"
+  when: item.stdout | int != 200

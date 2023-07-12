@@ -1,0 +1,66 @@
+- name: System Check
+  shell: printf "\n System:\n" >> {{OUTPUT}}
+
+- name: Get CPU usage
+  shell: top -b -n1 | grep 'Cpu(s)' | awk '{cpu=$2+$4}  {printf "%.1f",cpu}'
+  register: cpu_usage
+
+- name: CPU usage is OK
+  shell: 
+    printf " %-30s%23s\n" CPU_Usage "{{cpu_usage['stdout']}}% (OK)" >> {{OUTPUT}} &&
+    printf "[{{cpu_usage.end}}]INFO:system_check:cpu_usage,{{cpu_usage['stdout']}}%%,cpu_max,{{CPU_MAX}}%%\n" >> {{LOG_PATH}}
+  when: cpu_usage['stdout'] | int < CPU_MAX
+
+- name: CPU usage is not OK
+  shell: 
+    printf " %-30s%23s\n" CPU_Usage "{{cpu_usage['stdout']}}% ({{CPU_MAX}}%)" >> {{OUTPUT}} &&
+    printf "[{{cpu_usage.end}}]ERROR:system_check:cpu_usage,{{cpu_usage['stdout']}}%%,cpu_max,{{CPU_MAX}}%%\n" >> {{LOG_PATH}}
+  when: cpu_usage['stdout'] | int >= CPU_MAX
+
+- name: change all check
+  set_fact: 
+    all_check: "{{ all_check | int + 1 }}"
+  when: cpu_usage['stdout'] | int >= CPU_MAX
+
+- name: Get Mem usage
+  shell: free | grep 'Mem' | awk '{mem=($2-$4)/$2 * 100} END {printf "%.1f",mem}'
+  register: mem_usage
+
+- name: Memory usage is OK
+  shell: 
+    printf " %-30s%23s\n" MEM_Usage "{{mem_usage['stdout']}}% (OK)" >> {{OUTPUT}} &&
+    printf "[{{mem_usage.end}}]INFO:system_check:mem_usage,{{mem_usage['stdout']}}%%,mem_max,{{MEM_MAX}}%%\n" >> {{LOG_PATH}}
+  when: mem_usage['stdout'] | int < MEM_MAX
+
+- name: Memory usage is not OK
+  shell: 
+    printf " %-30s%23s\n" MEM_Usage "{{mem_usage['stdout']}}% ({{MEM_MAX}}%)" >> {{OUTPUT}} &&
+    printf "[{{mem_usage.end}}]ERROR:system_check:mem_usage,{{mem_usage['stdout']}}%%,mem_max,{{MEM_MAX}}%%\n" >> {{LOG_PATH}}
+  when: mem_usage['stdout'] | int >= MEM_MAX
+
+- name: change all check
+  set_fact: 
+    all_check: "{{ all_check | int + 1 }}"
+  when: mem_usage['stdout'] | int >= MEM_MAX
+
+- name: Get Swap usage
+  shell: free | grep 'Swap' | awk '{swap=($2-$4)/$2 * 100} END {printf "%.1f",swap}'
+  register: swap_usage
+  ignore_errors: yes
+
+- name: Swap usage is OK
+  shell: 
+    printf " %-30s%23s\n" SWAP_Usage "{{swap_usage['stdout']}}% (OK)" >> {{OUTPUT}} &&
+    printf "[{{swap_usage.end}}]INFO:system_check:swap_usage,{{swap_usage['stdout']}}%%,swap_max,{{SWAP_MAX}}%%\n" >> {{LOG_PATH}}
+  when: swap_usage['stdout'] | int < SWAP_MAX
+
+- name: Swap usage is not OK
+  shell: 
+    printf " %-30s%23s\n" SWAP_Usage "{{swap_usage['stdout']}}% ({{SWAP_MAX}}%)" >> {{OUTPUT}} &&
+    printf "[{{swap_usage.end}}]ERROR:system_check:swap_usage,{{swap_usage['stdout']}}%%,swap_max,{{SWAP_MAX}}%%\n" >> {{LOG_PATH}}
+  when: swap_usage['stdout'] | int >= SWAP_MAX
+
+- name: change all check
+  set_fact: 
+    all_check: "{{ all_check | int + 1 }}"
+  when: swap_usage['stdout'] | int >= SWAP_MAX

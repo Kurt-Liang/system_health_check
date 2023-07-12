@@ -1,0 +1,207 @@
+- name: Service Check
+  hosts: localhost
+  vars:
+    ### Basic config
+    FILE_TIME: '{{ansible_date_time.year}}{{ansible_date_time.month}}{{ansible_date_time.day}}{{ansible_date_time.hour}}{{ansible_date_time.minute}}'
+    OUTPUT: '/etc/ansible/task/output'
+    LOG_PATH: '/home/logs/system_health_check/system_health_check_{{ FILE_TIME }}.log'
+
+    all_check: "0"
+    
+    # Please mark unnecessary functions
+    CHECK_LIST:
+      - 'system_check'
+      - 'disk_usage'
+      - 'ping_check'
+      - 'services_check'
+      - 'processes_check'
+      - 'log_content'
+      - 'sftp_test'
+      - 'ntp_check'
+      - 'ntpq_check'
+      - 'file_check'
+      - 'api_test'
+      - 'mysql_test'
+      - 'redis_test'
+      - 'ssd_check'
+
+    ### System usage config
+    CPU_MAX: 80
+    MEM_MAX: 80
+    SWAP_MAX: 80
+
+    ### Disk config
+    DISK:
+      - path: '/'
+        max: 80
+
+      - path: '/dev/shm'
+        max: 80
+      
+    ### Ping config
+    PING_IP: 
+      - '192.168.1.111'
+      - '192.168.1.110'
+      - '8.8.8.8'
+
+    ### Services config
+    SERVICES: 
+      # - 'redis.service'
+      # - 'mariadb.service'
+      - 'sshd.service'
+    
+    ### Processes config
+    PROCESSES:
+      - name: 'radiusd'
+        num: 1
+
+      # - name: 'watchcache'
+      #   num: 10
+    
+    ### Log config
+    LOG_CHECK:
+      - name: 'ping_server'
+        path: '/home/logs/ping_server/{{ ansible_date_time.date }}.log'
+        rows: 5
+        key_word: 'ERROR'
+    
+    ### sFTP config
+    SFTP_TIMEOUT: 10
+    SFTP_TEST:
+      # - ip: '192.168.1.119'
+      #   port: '2222'
+      #   user: 'root'
+      #   pwd: 'a12345678'
+      
+      - ip: '192.168.1.119'
+        port: '22'
+        user: 'root'
+        pwd: 'a12345678'
+    
+    # NTP config
+    # NTP_CHECK:
+      # - '192.168.1.119'
+      # - 'time.stdtime.gov.tw'
+    
+    ### NTPQ config
+    NTPQ_CHECK:
+      - '211-22-103-157'
+    
+    ### File check config
+    FILE_PATH:
+      - '/home/pcheng/ping_server/ping_server.pl'
+      # - '/home/ldp/watchcache_observer.pl'
+    
+    ### API test config
+    API_TIMEOUT: 10
+    API_TEST: 
+      - name: 'Local index'
+        url: '127.0.0.1'
+        method: 'GET'
+        params: ''
+      
+      - name: 'POST test'
+        url: '127.0.0.1'
+        method: 'POST'
+        params: ''
+      
+      # - name: 'Local test page'
+      #   url: '127.0.0.1/test.html'
+      
+      - name: 'Google index page'
+        url: 'www.google.com'
+        method: 'GET'
+        params: ''
+      
+    ### MySQL test config
+    MYSQL_TIMEOUT: 10
+    MYSQL_TEST:
+      - action: Select
+        host: 127.0.0.1
+        port: 3306
+        user: root
+        pwd: 
+        db_name: mysql
+        cmd: 'SELECT * FROM user;'
+      
+      # - action: Insert
+      #   host: 127.0.0.1
+      #   port: 3306
+      #   user: root
+      #   pwd: 
+      #   db_name: test
+      #   cmd: 'INSERT INTO test (name) VALUES (kurt);'
+    
+    ### Redis test config
+    REDIS_TIMEOUT: 10
+    REDIS_TEST:
+      # - action: SET
+      #   host: 192.168.0.110
+      #   port: 6379
+      #   pwd:
+      #   cmd: 'SET test 123'
+      
+      - action: SET
+        host: 127.0.0.1
+        port: 6379
+        pwd:
+        cmd: 'SET test 123'
+
+      - action: GET
+        host: 127.0.0.1
+        port: 6379
+        pwd:
+        cmd: 'GET test'
+    
+    ### SSD Info Check
+    SSD_percentage_used: 80
+
+
+  tasks:
+    ### Start
+    - name: Get start time
+      shell: date
+      register: start_time
+    
+    - name: Get hostname
+      shell: hostname
+      register: HOSTNAME
+
+    - name: Start Check
+      shell: printf "[{{start_time.end}}]INFO:start:{{HOSTNAME.stdout}}\n" >> {{LOG_PATH}}
+
+    ### Clean ouptup
+    - name: Clean old output
+      shell: rm -rf {{ OUTPUT }}
+      args:
+        warn: false
+
+    ### Check list start
+    - name: Check list start
+      include: './module/{{ list_item }}.yml'
+      with_items: '{{ CHECK_LIST }}'
+      loop_control:
+        loop_var: list_item
+    
+    ### End
+    - name: Get end time
+      shell: date
+      register: end_time
+
+    - name: End Check SUCCESS
+      shell: 
+        printf " .....................................................\n\n" >> {{OUTPUT}} &&
+        printf " %-30s%23s\n" "{{HOSTNAME.stdout}}" "SUCCESS" >> {{OUTPUT}} &&
+        printf "[{{end_time.end}}]SUCCESS:end:{{HOSTNAME.stdout}} system check SUCCESS\n" >> {{LOG_PATH}}
+      when: all_check == "0"
+    
+    - name: End Check FAILED
+      shell: 
+        printf " .....................................................\n\n" >> {{OUTPUT}} &&
+        printf " %-30s%23s\n" "{{HOSTNAME.stdout}}" "ERROR:{{all_check}}" >> {{OUTPUT}} &&
+        printf "[{{end_time.end}}]FAILED:end:{{HOSTNAME.stdout}} has {{all_check}} errors\n" >> {{LOG_PATH}}
+      when: all_check != "0"
+    
+    - name: Output To Log
+      shell:
+        cat {{OUTPUT}} >> {{LOG_PATH}}

@@ -1,0 +1,35 @@
+- name: NTP Check
+  shell: printf "\n NTP:\n" >> {{OUTPUT}}
+
+- name: NTP Test
+  shell: ntpdate {{item}} | awk '{printf $10}'
+  with_items: "{{NTP_CHECK}}"
+  register: ntp_check
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check NTP is OK
+  shell: 
+    printf " %-30s%23s\n" {{item.item}} "{{item.stdout}} sec" >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]INFO:ntp_check:{{item.item}},{{item.stdout}} sec\n" >> {{LOG_PATH}}
+  with_items: "{{ntp_check.results}}"
+  when: item.stdout != ""
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check NTP is not OK
+  shell: 
+    printf " %-30s%23s\n" {{item.item}} "no found" >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]ERROR:ntp_check:{{item.item}},'{{item.stderr}}'\n" >> {{LOG_PATH}}
+  with_items: "{{ntp_check.results}}"
+  when: item.stdout == ""
+
+- name: change all check
+  set_fact: 
+    all_check: "{{ all_check | int + 1 }}"
+  with_items: "{{ntp_check.results}}"
+  when: item.stdout == ""

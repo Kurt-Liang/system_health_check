@@ -1,0 +1,36 @@
+- name: Redis Test
+  shell: printf "\n Redis Test:\n" >> {{OUTPUT}}
+
+- name: Redis cmd Test
+  shell: timeout {{REDIS_TIMEOUT}} redis-cli -h {{item.host}} -p {{item.port}} -a '{{item.pwd}}' {{item.cmd}}
+  with_items: "{{REDIS_TEST}}"
+  register: redis_test
+  ignore_errors: yes
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check Redis Response
+  shell: 
+    printf " %-38s%15s\n" '{{item.item.host}}:{{item.item.port}}...{{item.item.action}}' '{{item.delta.split(":")[-1] | float}} sec' >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]INFO:redis_test:'{{item.item.cmd}}',{{item.delta}}\n" >> {{LOG_PATH}}
+  with_items: "{{redis_test.results}}"
+  when: item.stdout != ""
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check Redis Error Response
+  shell: 
+    printf " %-38s%15s\n" '{{item.item.host}}:{{item.item.port}}...{{item.item.action}}' 'ERROR' >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]ERROR:redis_test:'{{item.item.cmd}}',Could not connect to Redis at {{item.item.host}}:{{item.item.port}}:Connection timed out\n" >> {{LOG_PATH}}
+  with_items: "{{redis_test.results}}"
+  when: item.stdout == ""
+
+- name: change all check
+  set_fact: 
+    all_check: "{{ all_check | int + 1 }}"
+  with_items: "{{redis_test.results}}"
+  when: item.stdout == ""

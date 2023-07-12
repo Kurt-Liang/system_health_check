@@ -1,0 +1,36 @@
+- name: MySQL Test
+  shell: printf "\n MySQL Test:\n" >> {{OUTPUT}}
+
+- name: MySQL cmd Test
+  shell: mysql -h {{item.host}} --port={{item.port}} -D {{item.db_name}} --table -e '{{item.cmd}}' -u {{item.user}} --password='{{item.pwd}}' --connect-timeout={{MYSQL_TIMEOUT}}
+  with_items: "{{MYSQL_TEST}}"
+  register: mysql_test
+  ignore_errors: yes
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check MySQL Response
+  shell: 
+    printf " %-38s%15s\n" '{{item.item.host}}:{{item.item.port}}...{{item.item.action}}' '{{item.delta.split(":")[-1] | float}} sec' >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]INFO:mysql_test:'{{item.item.cmd}}',{{item.delta}}\n" >> {{LOG_PATH}}
+  with_items: "{{mysql_test.results}}"
+  when: item.stderr == ""
+
+- name: Get time now
+  shell: date
+  register: time_now
+
+- name: Check MySQL Error Response
+  shell: 
+    printf " %-38s%15s\n" '{{item.item.host}}:{{item.item.port}}...{{item.item.action}}' ERROR >> {{OUTPUT}} &&
+    printf "[{{time_now.end}}]ERROR:mysql_test:'{{item.item.cmd}}',{{item.stderr}}\n" >> {{LOG_PATH}}
+  with_items: "{{mysql_test.results}}"
+  when: item.stderr != ""
+
+- name: change all check
+  set_fact: 
+    all_check: "{{ all_check | int + 1 }}"
+  with_items: "{{mysql_test.results}}"
+  when: item.stderr != ""
