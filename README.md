@@ -1,5 +1,5 @@
 # system_health_check
- Use Ansible to do health check on the device
+ Use Ansible to do health check on the server
 
 # How to use
 ```
