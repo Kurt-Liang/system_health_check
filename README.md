@@ -150,3 +150,5 @@ CHECK_LIST:
   - 'ssd_check'
 SSD_percentage_used: [number]
 ```
+
+Good luck!
